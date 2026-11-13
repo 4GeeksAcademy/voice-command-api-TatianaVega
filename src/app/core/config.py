@@ -1,3 +1,4 @@
+import json
 from functools import lru_cache
 from typing import Annotated
 
@@ -10,6 +11,8 @@ class Settings(BaseSettings):
     groq_model: str = "llama-3.1-8b-instant"
     groq_transcription_model: str = "whisper-large-v3-turbo"
     request_timeout_seconds: float = 45.0
+    
+    # NoDecode evita que Pydantic intente hacer un json.loads automático antes de tiempo
     allowed_origins: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: ["http://localhost:5173", "http://127.0.0.1:5173"]
     )
@@ -23,7 +26,12 @@ class Settings(BaseSettings):
     @field_validator("allowed_origins", mode="before")
     @classmethod
     def parse_allowed_origins(cls, value: object) -> object:
-        if isinstance(value, str) and not value.strip().startswith("["):
+        if isinstance(value, str):
+            value = value.strip()
+            # Si viene en formato JSON (ej: '["http://...", "..."]')
+            if value.startswith("[") and value.endswith("]"):
+                return json.loads(value)
+            # Si viene separado por comas (ej: 'http://...,http://...')
             return [origin.strip() for origin in value.split(",") if origin.strip()]
         return value
 
